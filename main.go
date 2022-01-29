@@ -31,6 +31,8 @@ func newAPMTracker() *APMTracker {
 	return tracker
 }
 
+const windowSize = 60
+
 func (c *APMTracker) Start() {
 	ticker := time.NewTicker(1 * time.Second)
 	go func() {
@@ -44,8 +46,9 @@ func (c *APMTracker) Start() {
 			case <-ticker.C:
 				currentSecond := len(c.actionsPerSecond) - 1
 				c.rollingActionCount += uint(c.actionsPerSecond[currentSecond])
-				if currentSecond >= 60 {
-					c.rollingActionCount -= uint(c.actionsPerSecond[currentSecond-60])
+				if currentSecond >= windowSize {
+					fmt.Println("added index", currentSecond, "removed index", currentSecond-windowSize)
+					c.rollingActionCount -= uint(c.actionsPerSecond[currentSecond-windowSize])
 				}
 				c.actionsPerSecond = append(c.actionsPerSecond, 0)
 			}
@@ -54,7 +57,20 @@ func (c *APMTracker) Start() {
 }
 
 func (c *APMTracker) currentAPM() uint {
-	return c.rollingActionCount
+	switch currentWindowSize := len(c.actionsPerSecond) - 1; {
+	case currentWindowSize >= windowSize:
+		return c.rollingActionCount
+	case currentWindowSize == 0:
+		return 0
+	default:
+		return adjustFirstMinute(c.rollingActionCount, len(c.actionsPerSecond)-1)
+	}
+}
+
+func adjustFirstMinute(rollingActions uint, currentWindowSize int) uint {
+	multiplier := float64(windowSize) / float64(currentWindowSize)
+	val := float64(rollingActions) * multiplier
+	return uint(val)
 }
 
 func (c *APMTracker) addAction() {
@@ -189,10 +205,14 @@ func main() {
 		win32.SWP_NOACTIVATE|win32.SWP_NOMOVE|win32.SWP_NOSIZE|win32.SWP_SHOWWINDOW,
 	)
 
-	ticker := time.NewTicker(1000 * time.Millisecond)
+	// refresh loop
+	done := make(chan int)
+	ticker := time.NewTicker(200 * time.Millisecond)
 	go func() {
 		for {
 			select {
+			case <-done:
+				return
 			case <-ticker.C:
 				win32.SendMessage(hwnd, refreshSignal, 0, 0)
 			}
