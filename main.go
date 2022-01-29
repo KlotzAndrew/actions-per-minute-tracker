@@ -148,8 +148,19 @@ func (r *APMTracker) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM
 	return 0
 }
 
+const banner = `
+
+    ___    ____  __  ___   ______                __            
+   /   |  / __ \/  |/  /  /_  __/________ ______/ /_____  _____
+  / /| | / /_/ / /|_/ /    / / / ___/ __  / ___/ //_/ _ \/ ___/
+ / ___ |/ ____/ /  / /    / / / /  / /_/ / /__/ ,< /  __/ /    
+/_/  |_/_/   /_/  /_/    /_/ /_/   \__,_/\___/_/|_|\___/_/     
+                                                        %s
+
+`
+
 func main() {
-	fmt.Println("starting main...")
+	fmt.Printf(banner, "v0.0.1")
 	// setup apm tracker
 	tracker := newAPMTracker()
 	hookKeyboard := win32.SetWindowsHookEx(win32.WH_KEYBOARD_LL, tracker.keyboardCallback, 0, 0)
