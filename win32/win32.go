@@ -40,8 +40,13 @@ const (
 )
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/keyboard-input-notifications
+// https://docs.microsoft.com/en-us/windows/win32/learnwin32/keyboard-input
 const (
-	WM_KEYDOWN = 256
+	WM_KEYDOWN    = 256
+	WM_SYSKEYDOWN = 260
+
+	WM_SYSKEYUP = 261
+	WM_KEYUP    = 257
 )
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/mouse-input-notifications

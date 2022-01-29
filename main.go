@@ -8,66 +8,110 @@ import (
 	"actions-per-minute-tracker/win32"
 )
 
-type callback struct {
+const refreshSignal = 35001
+
+type APMTracker struct {
 	hookKeyboard win32.HHOOK
 	hookMouse    win32.HHOOK
+
+	actionsPerSecond   []uint16
+	rollingActionCount uint
+	done               chan (bool)
+	newActions         chan (int)
 }
 
-func (c *callback) keyboardCallback(code int, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
+func newAPMTracker() *APMTracker {
+	tracker := &APMTracker{
+		done:             make(chan bool),
+		actionsPerSecond: []uint16{0},
+		newActions:       make(chan int),
+	}
+	tracker.Start()
+
+	return tracker
+}
+
+func (c *APMTracker) Start() {
+	ticker := time.NewTicker(1 * time.Second)
+	go func() {
+		for {
+			select {
+			case <-c.done:
+				return
+			case <-c.newActions:
+				currentSecond := len(c.actionsPerSecond) - 1
+				c.actionsPerSecond[currentSecond]++
+			case <-ticker.C:
+				currentSecond := len(c.actionsPerSecond) - 1
+				c.rollingActionCount += uint(c.actionsPerSecond[currentSecond])
+				if currentSecond >= 60 {
+					c.rollingActionCount -= uint(c.actionsPerSecond[currentSecond-60])
+				}
+				c.actionsPerSecond = append(c.actionsPerSecond, 0)
+			}
+		}
+	}()
+}
+
+func (c *APMTracker) currentAPM() uint {
+	return c.rollingActionCount
+}
+
+func (c *APMTracker) addAction() {
+	c.newActions <- 1
+}
+
+func (c *APMTracker) keyboardCallback(code int, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
 	if code >= 0 {
-		if wparam == win32.WM_KEYDOWN {
-			fmt.Println("got called keyboard", wparam)
+		if wparam == win32.WM_KEYDOWN || wparam == win32.WM_SYSKEYDOWN {
+			c.addAction()
+		} else if wparam == win32.WM_KEYUP || wparam == win32.WM_SYSKEYUP {
+			// ignored
+		} else {
+			fmt.Println("missed kboard cb", wparam, lparam)
 		}
 	}
 	return win32.CallNextHookEx(c.hookKeyboard, code, wparam, lparam)
 }
 
-func (c *callback) mouseCallback(code int, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
+func (c *APMTracker) mouseCallback(code int, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
 	if code >= 0 {
 		if wparam == win32.WM_LBUTTONDOWN ||
 			wparam == win32.WM_RBUTTONDOWN ||
 			wparam == win32.WM_XBUTTONDOWN ||
 			wparam == win32.WM_MBUTTONDOWN {
-			fmt.Println("got called mouse", wparam)
+			c.addAction()
 		} else {
+			// no need to capture these
 		}
 	}
 	return win32.CallNextHookEx(c.hookMouse, code, wparam, lparam)
 }
 
-type APMRenderer struct {
-	counter int
-}
-
-func (r *APMRenderer) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
+func (r *APMTracker) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
 	var paintStruct win32.PAINTSTRUCT
 
 	switch msg {
 	case win32.WM_PAINT:
-		fmt.Println("paint window...")
-
 		hdc := win32.BeginPaint(hwnd, &paintStruct)
 
 		var rect win32.RECT
 		win32.GetClientRect(hwnd, &rect)
 
-		text := fmt.Sprintf("APM: %d - %d", r.counter, r.counter)
+		text := fmt.Sprintf("APM: %d", r.currentAPM())
 		win32.DrawText(hdc, text, rect, 0)
 		win32.EndPaint(hwnd, &paintStruct)
 
 		return 0
-
 	case win32.WM_MOUSEMOVE, win32.WM_NCHITTEST, win32.WM_NCMOUSEMOVE, win32.WM_GETICON, win32.WM_LBUTTONDOWN, win32.WM_LBUTTONUP:
 		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
 		return ret
 	case win32.WM_SETCURSOR:
-		fmt.Println("got a cursor thing", lparam, wparam)
 		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
 		return ret
-	case 35001:
+	case refreshSignal:
 		var rect win32.RECT
 		win32.GetClientRect(hwnd, &rect)
-
 		win32.InvalidateRect(hwnd, &rect)
 		return 0
 	case win32.WM_CLOSE:
@@ -75,7 +119,6 @@ func (r *APMRenderer) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARA
 	case win32.WM_DESTROY:
 		win32.PostQuitMessage(0)
 	default:
-		fmt.Println("got a message..", msg)
 		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
 		return ret
 	}
@@ -85,17 +128,17 @@ func (r *APMRenderer) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARA
 func main() {
 	fmt.Println("starting main...")
 	// setup apm tracker
-	cb := callback{}
-	hookKeyboard := win32.SetWindowsHookEx(win32.WH_KEYBOARD_LL, cb.keyboardCallback, 0, 0)
-	hookMouse := win32.SetWindowsHookEx(win32.WH_MOUSE_LL, cb.mouseCallback, 0, 0)
+	tracker := newAPMTracker()
+	hookKeyboard := win32.SetWindowsHookEx(win32.WH_KEYBOARD_LL, tracker.keyboardCallback, 0, 0)
+	hookMouse := win32.SetWindowsHookEx(win32.WH_MOUSE_LL, tracker.mouseCallback, 0, 0)
 
 	defer func() {
 		win32.UnhookWindowsHookEx(hookKeyboard)
 		win32.UnhookWindowsHookEx(hookMouse)
 	}()
 
-	cb.hookKeyboard = hookKeyboard
-	cb.hookMouse = hookMouse
+	tracker.hookKeyboard = hookKeyboard
+	tracker.hookMouse = hookMouse
 
 	// setup window
 	className := "apm-window-object"
@@ -112,8 +155,7 @@ func main() {
 		return
 	}
 
-	renderer := APMRenderer{counter: 0}
-	wndClass := win32.NewWNDClasss(className, renderer.windowProc, instance, cursor)
+	wndClass := win32.NewWNDClasss(className, tracker.windowProc, instance, cursor)
 	if _, err = win32.RegisterClassEx(&wndClass); err != nil {
 		log.Println(err)
 		return
@@ -152,8 +194,7 @@ func main() {
 		for {
 			select {
 			case <-ticker.C:
-				win32.SendMessage(hwnd, 35001, 0, 0)
-				renderer.counter++
+				win32.SendMessage(hwnd, refreshSignal, 0, 0)
 			}
 		}
 	}()
@@ -161,13 +202,11 @@ func main() {
 	// pull messages
 	var msg win32.MSG
 	for {
-		fmt.Println("looping...")
 		msgVal := win32.GetMessage(&msg, 0, 0, 0)
 		if msgVal <= 0 {
 			fmt.Println("bad msg val", msgVal)
 			break
 		}
-		fmt.Println("got msg", msg)
 		win32.TranslateMessage(&msg)
 		win32.DispatchMessage(&msg)
 	}
