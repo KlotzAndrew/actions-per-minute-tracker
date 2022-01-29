@@ -126,8 +126,8 @@ func main() {
 	hwnd := win32.CreateWindow(
 		extraStyles, // extra style
 		className,
-		"Test Pupper Window", // name
-		uint32(styles),       // style
+		"Actions Per Minute Tracker", // name
+		uint32(styles),               // style
 		int64(win32.GetSystemMetrics(win32.SM_CXSCREEN))-int64(width), // x
 		int64(height*2), // y
 		int64(width),    // width
