@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"log"
-	"syscall"
 	"time"
 
 	"actions-per-minute-tracker/win32"
@@ -36,8 +35,47 @@ func (c *callback) mouseCallback(code int, wparam win32.WPARAM, lparam win32.LPA
 	return win32.CallNextHookEx(c.hookMouse, code, wparam, lparam)
 }
 
-func windowProc(hwnd syscall.Handle, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
-	return win32.DefWindowProc(hwnd, msg, wparam, lparam)
+func windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
+	var paintStruct win32.PAINTSTRUCT
+
+	switch msg {
+	case win32.WM_PAINT:
+		fmt.Println("paint window...")
+
+		hdc := win32.BeginPaint(hwnd, &paintStruct)
+
+		var rect win32.RECT
+		win32.GetClientRect(hwnd, &rect)
+
+		text := fmt.Sprintf("APM: %d - %d", 77, 77)
+		win32.DrawText(hdc, text, rect, 0)
+		win32.EndPaint(hwnd, &paintStruct)
+
+		return 0
+
+	case win32.WM_MOUSEMOVE, win32.WM_NCHITTEST, win32.WM_NCMOUSEMOVE, win32.WM_GETICON, win32.WM_LBUTTONDOWN, win32.WM_LBUTTONUP:
+		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
+		return ret
+	case win32.WM_SETCURSOR:
+		fmt.Println("got a cursor thing", lparam, wparam)
+		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
+		return ret
+	case 35001:
+		var rect win32.RECT
+		win32.GetClientRect(hwnd, &rect)
+
+		win32.InvalidateRect(hwnd, &rect)
+		return 0
+	case win32.WM_CLOSE:
+		win32.DestroyWindow(hwnd)
+	case win32.WM_DESTROY:
+		win32.PostQuitMessage(0)
+	default:
+		fmt.Println("got a message..", msg)
+		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
+		return ret
+	}
+	return 0
 }
 
 func main() {

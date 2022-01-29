@@ -23,8 +23,15 @@ var (
 	pSetWindowPos     = user32.NewProc("SetWindowPos")
 	pSendMessage      = user32.NewProc("SendMessageW")
 
-	pTranslateMessage = user32.NewProc("TranslateMessage")
-	pDispatchMessageW = user32.NewProc("DispatchMessageW")
+	pTranslateMessage  = user32.NewProc("TranslateMessage")
+	pDispatchMessageW  = user32.NewProc("DispatchMessageW")
+	pBeginPaint        = user32.NewProc("BeginPaint")
+	pEndPaint          = user32.NewProc("EndPaint")
+	pDrawText          = user32.NewProc("DrawTextW")
+	pGetClientRect     = user32.NewProc("GetClientRect")
+	procInvalidateRect = user32.NewProc("InvalidateRect")
+	pDestroyWindow     = user32.NewProc("DestroyWindow")
+	pPostQuitMessage   = user32.NewProc("PostQuitMessage")
 )
 
 const (
@@ -43,6 +50,59 @@ const (
 	WM_RBUTTONDOWN = 516
 	WM_MBUTTONDOWN = 519
 	WM_XBUTTONDOWN = 523
+)
+
+// window notifications
+const (
+	WM_DESTROY     = 0x0002
+	WM_CLOSE       = 0x0010
+	WM_SETCURSOR   = 32
+	WM_MOUSEMOVE   = 512
+	WM_NCHITTEST   = 132
+	WM_NCMOUSEMOVE = 160
+	WM_GETICON     = 127
+	WM_LBUTTONUP   = 514
+	WM_PAINT       = 15
+)
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/dd162768.aspx
+type PAINTSTRUCT struct {
+	Hdc         uintptr
+	FErase      bool
+	RcPaint     RECT
+	FRestore    bool
+	FIncUpdate  bool
+	RgbReserved [32]byte
+}
+
+// http://msdn.microsoft.com/en-us/library/windows/desktop/dd162897.aspx
+type RECT struct {
+	Left, Top, Right, Bottom int32
+}
+
+// DrawText flags
+const (
+	DT_TOP             = 0
+	DT_LEFT            = 0
+	DT_CENTER          = 1
+	DT_RIGHT           = 2
+	DT_VCENTER         = 4
+	DT_BOTTOM          = 8
+	DT_WORDBREAK       = 16
+	DT_SINGLELINE      = 32
+	DT_EXPANDTABS      = 64
+	DT_TABSTOP         = 128
+	DT_NOCLIP          = 256
+	DT_EXTERNALLEADING = 512
+	DT_CALCRECT        = 1024
+	DT_NOPREFIX        = 2048
+	DT_INTERNAL        = 4096
+	DT_EDITCONTROL     = 8192
+	DT_PATH_ELLIPSIS   = 16384
+	DT_END_ELLIPSIS    = 32768
+	DT_MODIFYSTRING    = 65536
+	DT_RTLREADING      = 131072
+	DT_WORD_ELLIPSIS   = 262144
 )
 
 // https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-setwindowshookexw
@@ -124,10 +184,10 @@ type WNDCLASSEXW struct {
 	iconSm     syscall.Handle
 }
 
-type HWND uintptr
+type HWND syscall.Handle
 
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/writing-the-window-procedure
-type WindowProcFn func(syscall.Handle, uint32, WPARAM, LPARAM) LRESULT
+type WindowProcFn func(HWND, uint32, WPARAM, LPARAM) LRESULT
 
 func NewWNDClasss(className string, windowProc WindowProcFn, instance, cursor syscall.Handle) WNDCLASSEXW {
 	wnclass := WNDCLASSEXW{
@@ -141,7 +201,7 @@ func NewWNDClasss(className string, windowProc WindowProcFn, instance, cursor sy
 	return wnclass
 }
 
-func DefWindowProc(hwnd syscall.Handle, msg uint32, wparam WPARAM, lparam LPARAM) LRESULT {
+func DefWindowProc(hwnd HWND, msg uint32, wparam WPARAM, lparam LPARAM) LRESULT {
 	ret, _, _ := pDefWindowProcW.Call(
 		uintptr(hwnd),
 		uintptr(msg),
@@ -275,4 +335,58 @@ func CallNextHookEx(hhk HHOOK, nCode int, wparam WPARAM, lparam LPARAM) LRESULT 
 		uintptr(lparam),
 	)
 	return LRESULT(ret)
+}
+
+type HDC uintptr
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-beginpaint
+func BeginPaint(hwnd HWND, paintStruct *PAINTSTRUCT) HDC {
+	hdc, _, _ := pBeginPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(paintStruct)))
+	return HDC(hdc)
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-endpaint
+func EndPaint(hwnd HWND, paintStruct *PAINTSTRUCT) bool {
+	ret, _, _ := pEndPaint.Call(uintptr(hwnd), uintptr(unsafe.Pointer(paintStruct)))
+	return ret != 0
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-drawtext
+func DrawText(hdc HDC, text string, rect RECT, format int) {
+	pDrawText.Call(
+		uintptr(hdc),
+		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(text))),
+		uintptr(len(text)),
+		uintptr(unsafe.Pointer(&rect)),
+		uintptr(DT_CENTER|DT_NOCLIP|DT_SINGLELINE|DT_VCENTER),
+	)
+}
+
+// https://docs.microsoft.com/en-us/windows/win32/api/winuser/nf-winuser-getclientrect
+func GetClientRect(hwnd HWND, rect *RECT) bool {
+	ret, _, _ := pGetClientRect.Call(
+		uintptr(hwnd),
+		uintptr(unsafe.Pointer(rect)),
+	)
+	return ret != 0
+}
+
+func InvalidateRect(hwnd HWND, rect *RECT) {
+	procInvalidateRect.Call(
+		uintptr(hwnd),
+		uintptr(unsafe.Pointer(rect)),
+		uintptr(1), // actually a bool
+	)
+}
+
+func DestroyWindow(hwnd HWND) error {
+	ret, _, err := pDestroyWindow.Call(uintptr(hwnd))
+	if ret == 0 {
+		return err
+	}
+	return nil
+}
+
+func PostQuitMessage(exitCode int32) {
+	pPostQuitMessage.Call(uintptr(exitCode))
 }
