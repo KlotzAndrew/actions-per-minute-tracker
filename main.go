@@ -35,7 +35,11 @@ func (c *callback) mouseCallback(code int, wparam win32.WPARAM, lparam win32.LPA
 	return win32.CallNextHookEx(c.hookMouse, code, wparam, lparam)
 }
 
-func windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
+type APMRenderer struct {
+	counter int
+}
+
+func (r *APMRenderer) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
 	var paintStruct win32.PAINTSTRUCT
 
 	switch msg {
@@ -47,7 +51,7 @@ func windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.L
 		var rect win32.RECT
 		win32.GetClientRect(hwnd, &rect)
 
-		text := fmt.Sprintf("APM: %d - %d", 77, 77)
+		text := fmt.Sprintf("APM: %d - %d", r.counter, r.counter)
 		win32.DrawText(hdc, text, rect, 0)
 		win32.EndPaint(hwnd, &paintStruct)
 
@@ -108,7 +112,8 @@ func main() {
 		return
 	}
 
-	wndClass := win32.NewWNDClasss(className, windowProc, instance, cursor)
+	renderer := APMRenderer{counter: 0}
+	wndClass := win32.NewWNDClasss(className, renderer.windowProc, instance, cursor)
 	if _, err = win32.RegisterClassEx(&wndClass); err != nil {
 		log.Println(err)
 		return
@@ -142,14 +147,13 @@ func main() {
 		win32.SWP_NOACTIVATE|win32.SWP_NOMOVE|win32.SWP_NOSIZE|win32.SWP_SHOWWINDOW,
 	)
 
-	counter := 1000
 	ticker := time.NewTicker(1000 * time.Millisecond)
 	go func() {
 		for {
 			select {
 			case <-ticker.C:
 				win32.SendMessage(hwnd, 35001, 0, 0)
-				counter++
+				renderer.counter++
 			}
 		}
 	}()
