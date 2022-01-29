@@ -47,7 +47,6 @@ func (c *APMTracker) Start() {
 				currentSecond := len(c.actionsPerSecond) - 1
 				c.rollingActionCount += uint(c.actionsPerSecond[currentSecond])
 				if currentSecond >= windowSize {
-					fmt.Println("added index", currentSecond, "removed index", currentSecond-windowSize)
 					c.rollingActionCount -= uint(c.actionsPerSecond[currentSecond-windowSize])
 				}
 				c.actionsPerSecond = append(c.actionsPerSecond, 0)
@@ -114,8 +113,13 @@ func (r *APMTracker) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM
 		var rect win32.RECT
 		win32.GetClientRect(hwnd, &rect)
 
-		text := fmt.Sprintf("APM: %d", r.currentAPM())
-		win32.DrawText(hdc, text, rect, 0)
+		text := fmt.Sprintf("%d APM ", r.currentAPM())
+		win32.DrawText(
+			hdc,
+			text,
+			rect,
+			win32.DT_RIGHT|win32.DT_NOCLIP|win32.DT_SINGLELINE|win32.DT_VCENTER,
+		)
 		win32.EndPaint(hwnd, &paintStruct)
 
 		return 0
@@ -177,8 +181,8 @@ func main() {
 		return
 	}
 
-	height := 35
-	width := 130
+	height := 25
+	width := 70
 	var extraStyles uint32 = win32.WS_EX_COMPOSITED | win32.WS_EX_LAYERED | win32.WS_EX_NOACTIVATE | win32.WS_EX_TOPMOST | win32.WS_EX_TRANSPARENT
 	var styles uint32 = win32.WS_VISIBLE | win32.WS_POPUP
 	hwnd := win32.CreateWindow(
@@ -187,7 +191,7 @@ func main() {
 		"Actions Per Minute Tracker", // name
 		uint32(styles),               // style
 		int64(win32.GetSystemMetrics(win32.SM_CXSCREEN))-int64(width), // x
-		int64(height*2), // y
+		int64(height*3), // y
 		int64(width),    // width
 		int64(height),   // height
 		0,               // parent

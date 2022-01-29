@@ -363,7 +363,7 @@ func DrawText(hdc HDC, text string, rect RECT, format int) {
 		uintptr(unsafe.Pointer(syscall.StringToUTF16Ptr(text))),
 		uintptr(len(text)),
 		uintptr(unsafe.Pointer(&rect)),
-		uintptr(DT_CENTER|DT_NOCLIP|DT_SINGLELINE|DT_VCENTER),
+		uintptr(format),
 	)
 }
 
