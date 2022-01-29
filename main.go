@@ -56,24 +56,29 @@ func (c *APMTracker) Start() {
 }
 
 func (c *APMTracker) currentAPM() uint {
-	switch currentWindowSize := len(c.actionsPerSecond) - 1; {
-	case currentWindowSize >= windowSize:
+	currentWindowSize := len(c.actionsPerSecond) - 1
+	if currentWindowSize >= windowSize {
 		return c.rollingActionCount
-	case currentWindowSize == 0:
-		return 0
-	default:
-		return adjustFirstMinute(c.rollingActionCount, len(c.actionsPerSecond)-1)
 	}
+	return adjustFirstMinute(c.rollingActionCount, currentWindowSize)
 }
 
 func adjustFirstMinute(rollingActions uint, currentWindowSize int) uint {
+	if currentWindowSize == 0 {
+		return 0
+	}
 	multiplier := float64(windowSize) / float64(currentWindowSize)
 	val := float64(rollingActions) * multiplier
 	return uint(val)
 }
 
 func (c *APMTracker) addAction() {
-	c.newActions <- 1
+	select {
+	case c.newActions <- 1:
+	default:
+		log.Fatalf("unable to track action")
+	}
+
 }
 
 func (c *APMTracker) keyboardCallback(code int, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
@@ -96,8 +101,6 @@ func (c *APMTracker) mouseCallback(code int, wparam win32.WPARAM, lparam win32.L
 			wparam == win32.WM_XBUTTONDOWN ||
 			wparam == win32.WM_MBUTTONDOWN {
 			c.addAction()
-		} else {
-			// no need to capture these
 		}
 	}
 	return win32.CallNextHookEx(c.hookMouse, code, wparam, lparam)
@@ -165,20 +168,17 @@ func main() {
 
 	instance, err := win32.GetModuleHandle()
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatalf("unable to get module handle %+v", err)
 	}
 
 	cursor, err := win32.LoadCursorResource(win32.IDC_ARROW)
 	if err != nil {
-		log.Println(err)
-		return
+		log.Fatalf("unable to get cursor %+v", err)
 	}
 
 	wndClass := win32.NewWNDClasss(className, tracker.windowProc, instance, cursor)
 	if _, err = win32.RegisterClassEx(&wndClass); err != nil {
-		log.Println(err)
-		return
+		log.Fatalf("unable to register class %+v", err)
 	}
 
 	height := 25
@@ -228,8 +228,7 @@ func main() {
 	for {
 		msgVal := win32.GetMessage(&msg, 0, 0, 0)
 		if msgVal <= 0 {
-			fmt.Println("bad msg val", msgVal)
-			break
+			log.Fatalf("bad msg val %v", msgVal)
 		}
 		win32.TranslateMessage(&msg)
 		win32.DispatchMessage(&msg)
