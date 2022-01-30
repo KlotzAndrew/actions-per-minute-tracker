@@ -1,2 +1,6 @@
 *.exe
 *.log
+out/
+scratch/
+.vs/
+.vscode/

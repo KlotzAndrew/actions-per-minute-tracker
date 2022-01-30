@@ -19,8 +19,8 @@ Not currently supported
 ### From source
 
 1. Clone the repo
-2. Ensure you have Go installed
-3. Run `make build` in the root directory
+2. Open in Visual Studio Code
+3. Build
 
 ## Examples
 
