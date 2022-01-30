@@ -23,21 +23,29 @@ var (
 	pSetWindowPos     = user32.NewProc("SetWindowPos")
 	pSendMessage      = user32.NewProc("SendMessageW")
 
-	pTranslateMessage  = user32.NewProc("TranslateMessage")
-	pDispatchMessageW  = user32.NewProc("DispatchMessageW")
-	pBeginPaint        = user32.NewProc("BeginPaint")
-	pEndPaint          = user32.NewProc("EndPaint")
-	pDrawText          = user32.NewProc("DrawTextW")
-	pGetClientRect     = user32.NewProc("GetClientRect")
-	procInvalidateRect = user32.NewProc("InvalidateRect")
-	pDestroyWindow     = user32.NewProc("DestroyWindow")
-	pPostQuitMessage   = user32.NewProc("PostQuitMessage")
+	pTranslateMessage     = user32.NewProc("TranslateMessage")
+	pDispatchMessageW     = user32.NewProc("DispatchMessageW")
+	pBeginPaint           = user32.NewProc("BeginPaint")
+	pEndPaint             = user32.NewProc("EndPaint")
+	pDrawText             = user32.NewProc("DrawTextW")
+	pGetClientRect        = user32.NewProc("GetClientRect")
+	procInvalidateRect    = user32.NewProc("InvalidateRect")
+	pDestroyWindow        = user32.NewProc("DestroyWindow")
+	pPostQuitMessage      = user32.NewProc("PostQuitMessage")
+	pSetTimer             = user32.NewProc("SetTimer")
+	pShowWindow           = user32.NewProc("ShowWindow")
+	pUpdateWindow         = user32.NewProc("UpdateWindow")
+	pKillTimer            = user32.NewProc("KillTimer")
+	pPeekMessage          = user32.NewProc("PeekMessageW")
+	pTranslateAccelerator = user32.NewProc("TranslateAcceleratorW")
 )
 
 const (
 	IDC_ARROW    = 32512
 	COLOR_WINDOW = 5
 )
+
+const PM_REMOVE = 0x001
 
 // https://docs.microsoft.com/en-us/windows/win32/inputdev/keyboard-input-notifications
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/keyboard-input
@@ -68,6 +76,10 @@ const (
 	WM_GETICON     = 127
 	WM_LBUTTONUP   = 514
 	WM_PAINT       = 15
+	WM_ERASEBKGND  = 20
+	WM_INITDIALOG  = 0x0110
+	WM_TIMER       = 0x0113
+	WM_CREATE      = 0x0001
 )
 
 // http://msdn.microsoft.com/en-us/library/windows/desktop/dd162768.aspx
@@ -191,6 +203,8 @@ type WNDCLASSEXW struct {
 
 type HWND syscall.Handle
 
+type HACCEL uintptr
+
 // https://docs.microsoft.com/en-us/windows/win32/learnwin32/writing-the-window-procedure
 type WindowProcFn func(HWND, uint32, WPARAM, LPARAM) LRESULT
 
@@ -274,12 +288,14 @@ func SendMessage(hwnd HWND, msg int, wparam WPARAM, lparam LPARAM) LRESULT {
 	return LRESULT(ret)
 }
 
-func DispatchMessage(msg *MSG) {
-	pDispatchMessageW.Call(uintptr(unsafe.Pointer(msg)))
+func DispatchMessage(msg *MSG) LRESULT {
+	ret, _, _ := pDispatchMessageW.Call(uintptr(unsafe.Pointer(msg)))
+	return LRESULT(ret)
 }
 
-func TranslateMessage(msg *MSG) {
-	pTranslateMessage.Call(uintptr(unsafe.Pointer(msg)))
+func TranslateMessage(msg *MSG) bool {
+	ret, _, _ := pTranslateMessage.Call(uintptr(unsafe.Pointer(msg)))
+	return ret != 0
 }
 
 func GetModuleHandle() (syscall.Handle, error) {
@@ -376,12 +392,13 @@ func GetClientRect(hwnd HWND, rect *RECT) bool {
 	return ret != 0
 }
 
-func InvalidateRect(hwnd HWND, rect *RECT) {
-	procInvalidateRect.Call(
+func InvalidateRect(hwnd HWND, rect *RECT) bool {
+	ret, _, _ := procInvalidateRect.Call(
 		uintptr(hwnd),
 		uintptr(unsafe.Pointer(rect)),
 		uintptr(1), // actually a bool
 	)
+	return ret != 0
 }
 
 func DestroyWindow(hwnd HWND) error {
@@ -394,4 +411,57 @@ func DestroyWindow(hwnd HWND) error {
 
 func PostQuitMessage(exitCode int32) {
 	pPostQuitMessage.Call(uintptr(exitCode))
+}
+
+func SetTimer(hwnd HWND, nIDEvent uint32, uElapse uint32, lpTimerProc uintptr) uintptr {
+	ret, _, _ := pSetTimer.Call(
+		uintptr(hwnd),
+		uintptr(nIDEvent),
+		uintptr(uElapse),
+		lpTimerProc,
+	)
+	return ret
+}
+
+func ShowWindow(hwnd HWND, cmdshow int) bool {
+	ret, _, _ := pShowWindow.Call(
+		uintptr(hwnd),
+		uintptr(cmdshow))
+
+	return ret != 0
+}
+
+func UpdateWindow(hwnd HWND) bool {
+	ret, _, _ := pUpdateWindow.Call(
+		uintptr(hwnd),
+	)
+	return ret != 0
+}
+
+func KillTimer(hwnd HWND, nIDEvent uint32) bool {
+	ret, _, _ := pKillTimer.Call(
+		uintptr(hwnd),
+		uintptr(nIDEvent),
+	)
+	return ret != 0
+}
+
+func PeekMessage(lpMsg *MSG, hwnd HWND, wMsgFilterMin, wMsgFilterMax, wRemoveMsg uint32) bool {
+	ret, _, _ := pPeekMessage.Call(
+		uintptr(unsafe.Pointer(lpMsg)),
+		uintptr(hwnd),
+		uintptr(wMsgFilterMin),
+		uintptr(wMsgFilterMax),
+		uintptr(wRemoveMsg))
+
+	return ret != 0
+}
+
+func TranslateAccelerator(hwnd HWND, hAccTable HACCEL, lpMsg *MSG) bool {
+	ret, _, _ := pTranslateAccelerator.Call(
+		uintptr(hwnd),
+		uintptr(hAccTable),
+		uintptr(unsafe.Pointer(lpMsg)))
+
+	return ret != 0
 }
