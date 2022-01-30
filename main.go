@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"time"
 
 	"actions-per-minute-tracker/win32"
-)
 
-const refreshSignal = 35001
+	log "github.com/sirupsen/logrus"
+)
 
 type APMTracker struct {
 	hookKeyboard win32.HHOOK
@@ -24,7 +23,7 @@ func newAPMTracker() *APMTracker {
 	tracker := &APMTracker{
 		done:             make(chan bool),
 		actionsPerSecond: []uint16{0},
-		newActions:       make(chan int),
+		newActions:       make(chan int, 10_000),
 	}
 	tracker.Start()
 
@@ -75,10 +74,11 @@ func adjustFirstMinute(rollingActions uint, currentWindowSize int) uint {
 func (c *APMTracker) addAction() {
 	select {
 	case c.newActions <- 1:
+	case <-time.After(25 * time.Millisecond):
+		log.Debug("tracking: tool too long to process message")
 	default:
-		log.Fatalf("unable to track action")
+		log.Fatalf("unable to track action", len(c.newActions))
 	}
-
 }
 
 func (c *APMTracker) keyboardCallback(code int, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
@@ -106,8 +106,11 @@ func (c *APMTracker) mouseCallback(code int, wparam win32.WPARAM, lparam win32.L
 	return win32.CallNextHookEx(c.hookMouse, code, wparam, lparam)
 }
 
+// https://docs.microsoft.com/en-us/windows/win32/winmsg/using-window-procedures
 func (r *APMTracker) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM, lparam win32.LPARAM) win32.LRESULT {
 	var paintStruct win32.PAINTSTRUCT
+	log.Debug("window message recieved: ", msg)
+	defer log.Debug("window message processed: ", msg)
 
 	switch msg {
 	case win32.WM_PAINT:
@@ -124,27 +127,22 @@ func (r *APMTracker) windowProc(hwnd win32.HWND, msg uint32, wparam win32.WPARAM
 			win32.DT_RIGHT|win32.DT_NOCLIP|win32.DT_SINGLELINE|win32.DT_VCENTER,
 		)
 		win32.EndPaint(hwnd, &paintStruct)
-
-		return 0
-	case win32.WM_MOUSEMOVE, win32.WM_NCHITTEST, win32.WM_NCMOUSEMOVE, win32.WM_GETICON, win32.WM_LBUTTONDOWN, win32.WM_LBUTTONUP:
-		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
-		return ret
-	case win32.WM_SETCURSOR:
-		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
-		return ret
-	case refreshSignal:
+		// case win32.WM_MOUSEMOVE, win32.WM_NCHITTEST, win32.WM_NCMOUSEMOVE, win32.WM_GETICON, win32.WM_LBUTTONDOWN, win32.WM_LBUTTONUP:
+		// case win32.WM_SETCURSOR:
+	case win32.WM_TIMER:
 		var rect win32.RECT
-		win32.GetClientRect(hwnd, &rect)
-		win32.InvalidateRect(hwnd, &rect)
-		return 0
+		ok := win32.GetClientRect(hwnd, &rect)
+		log.Debug("getting rect status: ", ok)
+		invalidateOK := win32.InvalidateRect(hwnd, &rect)
+		log.Debug("getting invalid status: ", invalidateOK)
 	case win32.WM_CLOSE:
 		win32.DestroyWindow(hwnd)
 	case win32.WM_DESTROY:
 		win32.PostQuitMessage(0)
 	default:
-		ret := win32.DefWindowProc(hwnd, msg, wparam, lparam)
-		return ret
+		return win32.DefWindowProc(hwnd, msg, wparam, lparam)
 	}
+
 	return 0
 }
 
@@ -160,6 +158,8 @@ const banner = `
 `
 
 func main() {
+	// log.SetLevel(log.DebugLevel)
+
 	fmt.Printf(banner, "v0.0.1")
 	// setup apm tracker
 	tracker := newAPMTracker()
@@ -220,19 +220,11 @@ func main() {
 		win32.SWP_NOACTIVATE|win32.SWP_NOMOVE|win32.SWP_NOSIZE|win32.SWP_SHOWWINDOW,
 	)
 
-	// refresh loop
-	done := make(chan int)
-	ticker := time.NewTicker(200 * time.Millisecond)
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-				win32.SendMessage(hwnd, refreshSignal, 0, 0)
-			}
-		}
-	}()
+	win32.ShowWindow(hwnd, 1)
+	win32.UpdateWindow(hwnd)
+
+	const timerID = 500
+	win32.SetTimer(hwnd, timerID, timerID, 0)
 
 	// pull messages
 	var msg win32.MSG
