@@ -10,7 +10,10 @@ This project currently only supports Windows.
 
 ### Windows
 
-Releases coming soon
+Check out the [releases here](1). You probably want the win64 version.
+1. Download the .exe file (e.g. `ActionsPerMinuteTracker-win64.exe`)
+2. Run it to start tracking
+3. See your actions per minute in the upper right corner
 
 ### Linux
 
@@ -29,3 +32,5 @@ Not currently supported
 
 ### Dota 2
 ![Dota 2 example with APM](./dota_example_apm.png)
+
+[releases]: https://github.com/KlotzAndrew/actions-per-minute-tracker/releases
