@@ -18,6 +18,7 @@ const char *banner = "\n\
     APM Tracker %s \n\
 \n";
 
+const std::string version = "v1.0.0";
 
 int adjustFirstMinute(int currentWindowSize)
 {
@@ -189,7 +190,7 @@ int main()
     int timer = 500;
     SetTimer(hwnd, timer, timer, 0);
 
-    printf(banner, "v0.0.2");
+    printf(banner, version);
 
     MSG msg = { };
     while (WM_QUIT != msg.message)
