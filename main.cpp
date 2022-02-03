@@ -1,4 +1,7 @@
-﻿#include <iostream>
+﻿#include "pch.h"
+#include "framework.h"
+
+#include <iostream>
 #include <Windows.h>
 
 #include <signal.h>
@@ -18,7 +21,7 @@ const char *banner = "\n\
     APM Tracker %s \n\
 \n";
 
-const std::string version = "v1.0.0";
+const std::string version = "v1.1.0";
 
 int adjustFirstMinute(int currentWindowSize)
 {
@@ -105,15 +108,16 @@ static LRESULT CALLBACK wndProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM l
         std::string text = " : APM ";
         text = std::to_string(currentAPM()) + text;
 
-        LPCSTR lpMyString = text.c_str();
+        std::wstring widestr = std::wstring(text.begin(), text.end());
+        const wchar_t* widecstr = widestr.c_str();
 
         DrawText(
-			hdc,
-			lpMyString,
-			strlen(lpMyString),
+            hdc,
+            widecstr,
+            -1,
             &rect,
-			DT_RIGHT|DT_NOCLIP|DT_SINGLELINE|DT_VCENTER
-		);
+            DT_RIGHT|DT_NOCLIP|DT_SINGLELINE|DT_VCENTER
+        );
 
         EndPaint(hwnd, &paintStruct);
         break;
