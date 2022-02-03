@@ -4,4 +4,4 @@ out/
 scratch/
 .vs/
 .vscode/
-x64
+Release/
