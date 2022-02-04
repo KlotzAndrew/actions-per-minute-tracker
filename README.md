@@ -34,3 +34,20 @@ Not currently supported
 ![Dota 2 example with APM](./dota_example_apm.png)
 
 [releases]: https://github.com/KlotzAndrew/actions-per-minute-tracker/releases
+
+## Issues
+
+### Windows warnings
+
+The release exe files are not signed with a [Microsoft code signing certificate][code_signing]. This
+means there are some ugly warning messages when trying to download & run the program. If you click though
+them the program will run as expected
+
+The code singing certificates are expensive, so the only current workaround is to clone and compile the program yourself (reach out if you have other ideas!)
+
+![download warning](./warning_download.png)
+
+![run warning](./warning_run.png)
+
+
+[code_signing]: https://docs.microsoft.com/en-us/windows-hardware/drivers/dashboard/get-a-code-signing-certificate
