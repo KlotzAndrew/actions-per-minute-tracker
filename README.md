@@ -2,6 +2,8 @@
 
 An Actions Per Minute (APM) tracker to povide real-time stats on your actions per minute.
 
+![zoomed in](./zoomed_in.png)
+
 This program runs in the background and creates a small "APM" window that sits on top of your game screen.
 
 This project currently only supports Windows.
