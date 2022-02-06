@@ -8,6 +8,7 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <mutex>
 
 HHOOK eHook = NULL;
 HHOOK mHook = NULL;
@@ -16,6 +17,7 @@ int windowSize = 60;
 
 std::vector<int> actionsPerSecond{0};
 int rollingActionCount;
+std::mutex mtx;
 
 const char *banner = "\n\
     APM Tracker %s \n\
@@ -34,6 +36,8 @@ int adjustFirstMinute(int currentWindowSize)
 
 void addAction() 
 {
+    const std::lock_guard<std::mutex> lock(mtx);
+
     int currentSecond = actionsPerSecond.size() - 1;
     actionsPerSecond[currentSecond]++;
 }
@@ -47,18 +51,22 @@ int currentAPM()
     return adjustFirstMinute(currentSecond);
 }
 
+void incrementSecond() {
+    const std::lock_guard<std::mutex> lock(mtx);
+
+    int currentSecond = actionsPerSecond.size() - 1;
+    rollingActionCount += actionsPerSecond[currentSecond];
+    if (currentSecond >= windowSize) {
+        rollingActionCount -= actionsPerSecond[currentSecond-windowSize];
+    }
+    actionsPerSecond.push_back(0);
+    std::cout << ".";
+}
 
 void tick() {
     while(true) {
         Sleep(1000);
-        int currentSecond = actionsPerSecond.size() - 1;
-
-        rollingActionCount += actionsPerSecond[currentSecond];
-        if (currentSecond >= windowSize) {
-            rollingActionCount -= actionsPerSecond[currentSecond-windowSize];
-        }
-        actionsPerSecond.push_back(0);
-        std::cout << ".";
+        incrementSecond();
     }
 }
 
