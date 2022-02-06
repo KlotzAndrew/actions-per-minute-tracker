@@ -21,7 +21,7 @@ const char *banner = "\n\
     APM Tracker %s \n\
 \n";
 
-const std::string version = "v1.1.0";
+const std::string version = "v1.1.1";
 
 int adjustFirstMinute(int currentWindowSize)
 {
@@ -65,7 +65,7 @@ void ping() {
 LRESULT mouseProc(int nCode, WPARAM wparam, LPARAM lparam)
 {
     if (nCode < 0)
-        CallNextHookEx(eHook, nCode, wparam, lparam);
+        return CallNextHookEx(eHook, nCode, wparam, lparam);
 
     if (wparam == WM_LBUTTONDOWN ||
         wparam == WM_RBUTTONDOWN ||
@@ -80,7 +80,7 @@ LRESULT mouseProc(int nCode, WPARAM wparam, LPARAM lparam)
 LRESULT keyboardProc(int nCode, WPARAM wparam, LPARAM lparam)
 {
     if (nCode < 0)
-        CallNextHookEx(mHook, nCode, wparam, lparam);
+        return CallNextHookEx(mHook, nCode, wparam, lparam);
 
     if (wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN) 
         addAction();
