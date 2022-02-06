@@ -5,3 +5,5 @@ scratch/
 .vs/
 .vscode/
 Release/
+x64/
+x86/
