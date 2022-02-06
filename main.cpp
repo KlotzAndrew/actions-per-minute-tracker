@@ -199,11 +199,12 @@ int main()
     MSG msg = { };
     while (WM_QUIT != msg.message)
     {
-        if (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0)
+        while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE) > 0)
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
+        Sleep(1);
     }
 
     bool keyboardUnhooked = UnhookWindowsHookEx(eHook);
