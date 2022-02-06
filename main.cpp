@@ -48,7 +48,7 @@ int currentAPM()
 }
 
 
-void ping() {
+void tick() {
     while(true) {
         Sleep(1000);
         int currentSecond = actionsPerSecond.size() - 1;
@@ -189,7 +189,7 @@ int main()
         NULL
     );
 
-    std::thread t(ping);
+    std::thread t(tick);
 
     int timer = 500;
     SetTimer(hwnd, timer, timer, 0);
