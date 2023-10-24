@@ -12,7 +12,7 @@ This project currently only supports Windows.
 
 ### Windows
 
-Check out the [releases here](1). You probably want the win64 version.
+Check out the [releases here][releases]. You probably want the win64 version.
 1. Download the .exe file (e.g. `ActionsPerMinuteTracker-win64.exe`)
 2. Run it to start tracking
 3. See your actions per minute in the upper right corner
