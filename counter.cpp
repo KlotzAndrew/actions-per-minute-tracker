@@ -41,5 +41,5 @@ void incrementSecond() {
     rollingActionCount -= actionsPerSecond[currentSecond];
     actionsPerSecond[currentSecond] = 0;
 
-    std::cout << "." << rollingActionCount << "-" << totalSeconds << "-" << rollingActionCount / totalSeconds << std::endl;
+    std::cout << ".";
 }

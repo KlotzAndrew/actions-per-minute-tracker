@@ -14,7 +14,7 @@ HHOOK eHook = NULL;
 HHOOK mHook = NULL;
 
 const char *banner = "\n\
-    qAPM Tracker %s \n\
+    APM Tracker %s \n\
 \n";
 
 const std::string version = "v1.2.1";
