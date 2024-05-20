@@ -1,4 +1,4 @@
-﻿#include "pch.h"
+﻿#include "counter.h"
 #include "framework.h"
 
 #include <iostream>
@@ -13,55 +13,11 @@
 HHOOK eHook = NULL;
 HHOOK mHook = NULL;
 
-int windowSize = 60;
-
-std::vector<int> actionsPerSecond{0};
-int rollingActionCount;
-std::mutex mtx;
-
 const char *banner = "\n\
-    APM Tracker %s \n\
+    qAPM Tracker %s \n\
 \n";
 
-const std::string version = "v1.1.1";
-
-int adjustFirstMinute(int currentWindowSize)
-{
-    if (currentWindowSize == 0)
-        return 0;
-
-    float m = static_cast<float>(windowSize) / static_cast<float>(currentWindowSize);
-    return static_cast<int>(m * rollingActionCount);
-}
-
-void addAction() 
-{
-    const std::lock_guard<std::mutex> lock(mtx);
-
-    int currentSecond = actionsPerSecond.size() - 1;
-    actionsPerSecond[currentSecond]++;
-}
-
-int currentAPM()
-{
-    int currentSecond = actionsPerSecond.size() - 1;
-    if (currentSecond > windowSize)
-        return rollingActionCount;
-
-    return adjustFirstMinute(currentSecond);
-}
-
-void incrementSecond() {
-    const std::lock_guard<std::mutex> lock(mtx);
-
-    int currentSecond = actionsPerSecond.size() - 1;
-    rollingActionCount += actionsPerSecond[currentSecond];
-    if (currentSecond >= windowSize) {
-        rollingActionCount -= actionsPerSecond[currentSecond-windowSize];
-    }
-    actionsPerSecond.push_back(0);
-    std::cout << ".";
-}
+const std::string version = "v1.2.1";
 
 void tick() {
     while(true) {
@@ -78,7 +34,7 @@ LRESULT mouseProc(int nCode, WPARAM wparam, LPARAM lparam)
     if (wparam == WM_LBUTTONDOWN ||
         wparam == WM_RBUTTONDOWN ||
         wparam == WM_XBUTTONDOWN ||
-        wparam == WM_MBUTTONDOWN) 
+        wparam == WM_MBUTTONDOWN)
         addAction();
 
     return CallNextHookEx(eHook, nCode, wparam, lparam);
@@ -90,7 +46,7 @@ LRESULT keyboardProc(int nCode, WPARAM wparam, LPARAM lparam)
     if (nCode < 0)
         return CallNextHookEx(mHook, nCode, wparam, lparam);
 
-    if (wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN) 
+    if (wparam == WM_KEYDOWN || wparam == WM_SYSKEYDOWN)
         addAction();
 
     return CallNextHookEx(mHook, nCode, wparam, lparam);
@@ -171,7 +127,7 @@ int main()
         TEXT("actions-per-minute-class"), // ClassName
         LoadIcon(0,IDI_APPLICATION) // small icon
     };
-    
+
     bool isClassRegistered = RegisterClassEx(&wndclass);
     if (!isClassRegistered) {
         std::cout << "class not registered" << std::endl;
